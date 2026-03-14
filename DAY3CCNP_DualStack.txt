@@ -113,27 +113,28 @@ end
 
 D2:
 CONFIG T
-____________________________________________	!wag bigay 1-199
-____________________________________________	!wag bigay 250-254
+ip dhcp excluded-add 10.2.1.1 10.2.1.199	!wag bigay 1-199
+ip dhcp excluded-add 10.2.1.250 10.2.1.254	!wag bigay 250-254
 !
-___________________				   !gawa pool for vlan 10
-  ______________________________________________   !network ni vlan 10
-  __________________________			   !default gateway ni vlan 10
+ip dhcp pool vlan10				   !gawa pool for vlan 10
+  network 10.2.1.0 255.255.255.0   !network ni vlan 10
+  default-router 10.2.1.254			   !default gateway ni vlan 10
 end
 !
 
 
 A1:
 config t
-_____ ___ 				!assign e0/0 via vlan 10
- __________ ____ ______ 
- _________ ______ ____ __
+int e0/0 				!assign e0/0 via vlan 10
+ switchport mode access 
+ switchport access vlan 10
 
 
 A2:
-_____ ___ 				!assign e1/0 via vlan 10
- __________ ____ ______ 
- _________ ______ ____ __
+config t
+int e1/0 				!assign e1/0 via vlan 10
+ switchport mode access 
+ switchport access vlan 10
 
 
 
@@ -171,8 +172,9 @@ Int Range e0/0-3, e1/2-3
   switchport mode trunk
   exit
 
-____ _			!create vlan2 named CHECKMEEEE	
-____ _________
+conf t
+vlan 2			!create vlan2 named CHECKMEEEE	
+name CHECKMEEE
 end
 
 
@@ -180,7 +182,7 @@ D2:
 config t
 no logging console
 no ip domain-lookup
-_____________ ____ _____ ____ _________ 	!make this as secondary root
+spanning-tree vlan 1-100 root secondary 	!make this as secondary root
 end
 
 !verify if VLANS are propagating
@@ -258,24 +260,24 @@ channel-group 10 mode active
 channel-protocol lacp
 
 !Po15 to D2 (use SHOW CDP NEIGHBORS to determine ports)
-___ _____ ____,___
-___ ___ _____ _____
-___ _____ _____
-___ _____ _______ ____ _-___
-______-_____ __ ____ ______
-______-________ ____
+int range e0/3,e1/0
+swi tr encap dot1q
+swi mode trunk
+swi trunk allowed vlan 1-100
+channel-group 15 mode active
+channel-protocol lacp
 end
 
 
 @A2
 !Po20 to D1
 conf t
-___ _____ ____,___
-___ ___ _____ _____
-___ _____ _____
-___ _____ _______ ____ _-___
-______-_____ __ ____ ______
-______-________ ____
+int range e0/1,e0/2
+swi tr encap dot1q
+swi mode trunk
+swi trunk allowed vlan 1-100
+channel-group 20 mode active
+channel-protocol lacp
 
 !Po25 to D2
 int range e0/0,e0/3
@@ -370,21 +372,21 @@ show ip eigrp neighbor
 or NEXUS-like
 
 conf t
-	_____ _____ _________						!configure an EIGRP named CCNPLEVEL
-		____________________________________________	!set its address family v4 with AS 100
-		_______ __._._.__ _._._._	!advertise e1/1 IP with wildcard/32
-		_______ __._._.__ _._._._	!advertise D2 vlan10 with wildcard/32
-		_______ __._._.__ _._._._	!advertise D2 vlan20 with wildcard/32
-		_______ ___.___._.___ _._._._	!advertise D2 vlan200  with wildcard/32
+	router eigrp CCNPLEVEL						!configure an EIGRP named CCNPLEVEL
+		address-family ipv4 unicast autonomous-system 100	!set its address family v4 with AS 100
+		network 10.1.4.8 0.0.0.3	!advertise e1/1 IP with wildcard/32
+		network 10.2.1.0 0.0.0.255	!advertise D2 vlan10 with wildcard/32
+		network 10.2.2.0 0.0.0.255	!advertise D2 vlan20 with wildcard/32
+		network 192.168.1.128 0.0.0.31	!advertise D2 vlan200  with wildcard/32
 		end
 	sh ip eigrp nei
 
 R4:
 config t
-router _____ ___ 		
+router eigrp 100		
  no auto-summary
- _______ __._._._ _._._._	
- _______ __._._._ _._._._
+ network 10.1.4.4 0.0.0.3
+ network 10.1.4.8 0.0.0.3
  end
 
 
@@ -406,15 +408,15 @@ end
 R2:
 config t
 router ospf 1
- _______ __._._._ _._._._ ____ _
- _______ __._._._ _._._._ ____ _
+ network 10.1.1.0 0.0.0.3 area 12
+ network 10.1.1.4 0.0.0.3 area 0
 end
 
 
 R1:
 config t
 router ospf 1
-_______ __._._._ _._._._ ____ _
+network 10.1.1.0 0.0.0.3 area 12
 end
 
 
@@ -424,13 +426,13 @@ R1 BGP:
 config t
 router bgp 1
  bgp log-neighbor-changes
- n_______ __._._._ remote-as __
- n_______ __._._._ remote-as _
- n_______ __._._._ remote-as _
- network 10.0.0.0 Mask 255.255.255.252
- n______ __._._._ ____ ___.___.___._
- n______ __._._._ ____ ___.___.___._
- n______ __._._._ ____ ___.___.___._
+ neighbor 208.8.8.4 remote-as 45
+ neighbor 207.7.7.1 remote-as 2
+ neighbor 209.9.9.1 remote-as 3
+ network 10.1.1.0 Mask 255.255.255.252
+ network 208.8.8.0 Mask 255.255.255.0
+ network 207.7.7.0 Mask 255.255.255.0
+ network 209.9.9.0 Mask 255.255.255.0
 end
 
 
@@ -457,15 +459,15 @@ end
 config t
 router bgp 2
 bgp log-neighbor-changes
-n_______ __._._._ ______-__ __
-n_______ __._._._ ______-__ __
-n_______ __._._._ remote-as _
-n_______ ___._._._ ______-__ _
+neighbor __._._._ ______-__ __
+neighbor __._._._ ______-__ __
+neighbor __._._._ remote-as _
+neighbor ___._._._ ______-__ _
 network ___._._._ mask ___.___.___._
-n______ __.__.__.__ ____ ___.___.___._
-n______ __._._._ ____ ___.___.___._
-n______ __._._._ ____ ___.___.___._
-n______ __._._._ ____ ___.___.___._
+network __.__.__.__ ____ ___.___.___._
+network __._._._ ____ ___.___.___._
+network __._._._ ____ ___.___.___._
+network __._._._ ____ ___.___.___._
 !PretendInternet
 network 0.0.0.0
 ip route 0.0.0.0 0.0.0.0 null 0
